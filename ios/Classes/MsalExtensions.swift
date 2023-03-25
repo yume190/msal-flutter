@@ -5,16 +5,16 @@ import Foundation
 import MSAL
 
 extension MSALAccount {
-
-
     var dictionary: [String: Any?] {
-        return ["username": username,
-                "identifier": identifier,
-                "environment": environment,
-                "accountClaims": accountClaims,
-                "isSSOAccount": isSSOAccount
+        return [
+            "username": username,
+            "identifier": identifier,
+            "environment": environment,
+            "accountClaims": accountClaims,
+            "isSSOAccount": isSSOAccount,
         ]
     }
+
     var nsDictionary: NSDictionary {
         return dictionary as NSDictionary
     }
@@ -31,8 +31,6 @@ extension MSALWebviewParameters {
         if dictionary["presentationStyle"] != nil {
             presentationStyle = UIModalPresentationStyle.fromString(entry: dictionary["presentationStyle"] as? String)
         }
-
-
     }
 }
 
@@ -89,34 +87,34 @@ extension UIModalPresentationStyle {
 
 extension MSALPublicClientApplicationConfig {
     static func fromDict(dictionary: NSDictionary) throws -> MSALPublicClientApplicationConfig {
-       var  authority :MSALAuthority
+        var authority: MSALAuthority
         do {
             guard let result = try MSALAuthority.fromString(entry: dictionary["authority"] as? String) else {
                 fatalError("guard failure handling has not been implemented")
             }
-            authority =  result
-        } catch let  error {
-            throw  error
+            authority = result
+        } catch {
+            throw error
         }
-        let config = MSALPublicClientApplicationConfig(clientId: dictionary["clientId"] as! String, redirectUri: (dictionary["redirectUri"] as? String) ?? self.generateRedirectUri(), authority: authority)
+        let config = MSALPublicClientApplicationConfig(
+            clientId: dictionary["clientId"] as! String,
+            redirectUri: (dictionary["redirectUri"] as? String) ?? generateRedirectUri(),
+            authority: authority
+        )
         config.bypassRedirectURIValidation = dictionary["bypassRedirectURIValidation"] as? Bool ?? false
         config.clientApplicationCapabilities = dictionary["clientApplicationCapabilities"] as? [String]
         config.extendedLifetimeEnabled = dictionary["extendedLifetimeEnabled"] as? Bool ?? false
-    var knownAuthorities : [MSALAuthority] = [authority]
-            if dictionary["knownAuthorities"] != nil {
-                for item in dictionary["knownAuthorities"] as! [String] {
-                    do{
-                let auth = try MSALAuthority.fromString(entry: item)!
-                        knownAuthorities.insert(auth,at:0)
-            } catch {
-
+        var knownAuthorities: [MSALAuthority] = [authority]
+        if let items = dictionary["knownAuthorities"] as? [String] {
+            for item in items {
+                do {
+                    let auth = try MSALAuthority.fromString(entry: item)!
+                    knownAuthorities.insert(auth, at: 0)
+                } catch {}
             }
-                }
+        }
 
-            }
-
-
-    config.knownAuthorities = knownAuthorities
+        config.knownAuthorities = knownAuthorities
         if dictionary["cacheConfig"] != nil {
             config.cacheConfig.fromDict(dict: dictionary["cacheConfig"] as! NSDictionary)
         }
@@ -131,7 +129,7 @@ extension MSALPublicClientApplicationConfig {
 
     // generates the default redirect uri for IOS
 
-    static private func generateRedirectUri() -> String? {
+    private static func generateRedirectUri() -> String? {
         if let bundleId = Bundle.main.bundleIdentifier {
             return "msauth." + bundleId + "://auth"
         }
@@ -145,7 +143,7 @@ extension MSALAuthority {
             guard let authorityUrl = URL(string: entry!) else {
                 return nil
             }
-            return try MSALAuthority(url: authorityUrl);
+            return try MSALAuthority(url: authorityUrl)
         }
         return nil
     }
@@ -157,7 +155,6 @@ extension MSALCacheConfig {
         if keychain?.isEmpty == false {
             keychainSharingGroup = keychain!
         }
-
     }
 }
 
@@ -174,13 +171,17 @@ extension MSALSliceConfig {
 extension MSALInteractiveTokenParameters {
     static func fromDict(dict: NSDictionary, param: MSALWebviewParameters) -> MSALInteractiveTokenParameters {
         var tokenParam: MSALInteractiveTokenParameters
-        tokenParam = MSALInteractiveTokenParameters(scopes: dict["scopes"] as! [String], webviewParameters: param)
+        let scopes = (dict["scopes"] as? [String]) ?? []
+        tokenParam = MSALInteractiveTokenParameters(
+            scopes: scopes,
+            webviewParameters: param
+        )
         tokenParam.fromDict(dict: dict)
         if dict["authority"] != nil {
             do {
                 tokenParam.authority = try MSALAuthority.fromString(entry: dict["authority"] as? String)
             } catch {
-    //            Do Nothing
+                //            Do Nothing
             }
         }
 
@@ -190,7 +191,6 @@ extension MSALInteractiveTokenParameters {
 
         return tokenParam
     }
-
 }
 
 extension MSALPromptType {
@@ -218,7 +218,6 @@ extension MSALTokenParameters {
     func fromDict(dict: NSDictionary) {
         extraQueryParameters = dict["extraQueryParameters"] as? [String: String]
         correlationId = UUID(uuidString: dict["correlationId"] as? String ?? "")
-
     }
 }
 
@@ -226,13 +225,13 @@ extension MSALSilentTokenParameters {
     static func fromDict(dict: NSDictionary, account: MSALAccount) -> MSALSilentTokenParameters {
         var silentParam: MSALSilentTokenParameters
 
-        silentParam = MSALSilentTokenParameters(scopes: dict["scopes"] as! [String], account: account)
+        let scopes = (dict["scopes"] as? [String]) ?? []
+        silentParam = MSALSilentTokenParameters(scopes: scopes, account: account)
 
         if dict["forceRefresh"] != nil {
             silentParam.forceRefresh = dict["forceRefresh"] as? Bool ?? false
         }
         silentParam.fromDict(dict: dict)
-//        silentParam.
         return silentParam
     }
 }
@@ -249,35 +248,43 @@ extension MSALSignoutParameters {
 
 extension MSALAccountEnumerationParameters {
     static func fromDict(dict: NSDictionary?) -> MSALAccountEnumerationParameters {
-        if (dict?["identifier"] != nil) {
-            if (dict?["username"] != nil) {
-                return MSALAccountEnumerationParameters(identifier: dict!["identifier"] as? String, username: dict!["username"] as! String)
-            }
-            return MSALAccountEnumerationParameters(identifier: dict!["identifier"] as! String)
-        } else if (dict?["tenantProfileIdentifier"] != nil) {
-            return MSALAccountEnumerationParameters(tenantProfileIdentifier: dict!["tenantProfileIdentifier"] as! String)
+        guard let dict = dict else {
+            return MSALAccountEnumerationParameters()
         }
+        
+        let identifier = dict["identifier"] as? String
+        let username = dict["username"] as? String
+        let tenantProfileIdentifier = dict["tenantProfileIdentifier"] as? String
+        
+        if let identifier = identifier {
+            return MSALAccountEnumerationParameters(
+                identifier: identifier,
+                username: username
+            )
+        } else {
+            return MSALAccountEnumerationParameters(tenantProfileIdentifier: tenantProfileIdentifier)
+        }
+        
         return MSALAccountEnumerationParameters()
     }
 }
 
 extension MSALResult {
-
     func toDict() -> [String: Any?] {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
 
-        return ["accessToken": accessToken, "account": account.nsDictionary,
-                "authenticationScheme": authenticationScheme,
-                "authority": authority.url.absoluteString,
-                "authorizationHeader": authorizationHeader,
-                "correlationId": correlationId.uuidString,
-                "expiresOn": expiresOn != nil ? dateFormatter.string(from: expiresOn!) : nil,
-                "extendedLifeTimeToken": extendedLifeTimeToken,
-                "idToken": idToken,
-                "scopes": scopes,
-                "tenantProfile": tenantProfile.toDict(),
-
+        return [
+            "accessToken": accessToken, "account": account.nsDictionary,
+            "authenticationScheme": authenticationScheme,
+            "authority": authority.url.absoluteString,
+            "authorizationHeader": authorizationHeader,
+            "correlationId": correlationId.uuidString,
+            "expiresOn": expiresOn != nil ? dateFormatter.string(from: expiresOn!) : nil,
+            "extendedLifeTimeToken": extendedLifeTimeToken,
+            "idToken": idToken,
+            "scopes": scopes,
+            "tenantProfile": tenantProfile.toDict(),
         ]
     }
 }
