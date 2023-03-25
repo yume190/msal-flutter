@@ -266,7 +266,7 @@ extension MSALAccountEnumerationParameters {
             return MSALAccountEnumerationParameters(
                 identifier: identifier
             )
-        } else {
+        } else if let tenantProfileIdentifier = tenantProfileIdentifier {
             return MSALAccountEnumerationParameters(
                 tenantProfileIdentifier: tenantProfileIdentifier
             )
@@ -301,3 +301,4 @@ extension MSALTenantProfile {
         return ["tenantId": tenantId, "claims": claims, "environment": environment, "identifier": identifier, "isHomeTenantProfile": isHomeTenantProfile]
     }
 }
+
