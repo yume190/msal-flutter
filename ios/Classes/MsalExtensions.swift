@@ -257,12 +257,19 @@ extension MSALAccountEnumerationParameters {
         let tenantProfileIdentifier = dict["tenantProfileIdentifier"] as? String
         
         if let identifier = identifier {
+            if let username = username {
+                return MSALAccountEnumerationParameters(
+                    identifier: identifier,
+                    username: username
+                )
+            }
             return MSALAccountEnumerationParameters(
-                identifier: identifier,
-                username: username
+                identifier: identifier
             )
         } else {
-            return MSALAccountEnumerationParameters(tenantProfileIdentifier: tenantProfileIdentifier)
+            return MSALAccountEnumerationParameters(
+                tenantProfileIdentifier: tenantProfileIdentifier
+            )
         }
         
         return MSALAccountEnumerationParameters()
